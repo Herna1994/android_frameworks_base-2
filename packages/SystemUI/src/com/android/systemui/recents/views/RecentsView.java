@@ -33,6 +33,7 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.WindowInsets;
 import android.widget.FrameLayout;
+import android.widget.LinearLayout;
 import com.android.systemui.recents.Constants;
 import com.android.systemui.recents.RecentsConfiguration;
 import com.android.systemui.recents.misc.Console;
@@ -42,6 +43,8 @@ import com.android.systemui.recents.model.RecentsPackageMonitor;
 import com.android.systemui.recents.model.RecentsTaskLoader;
 import com.android.systemui.recents.model.Task;
 import com.android.systemui.recents.model.TaskStack;
+
+import com.android.systemui.R;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -68,6 +71,7 @@ public class RecentsView extends FrameLayout implements TaskStackView.TaskStackV
     ArrayList<TaskStack> mStacks;
     View mSearchBar;
     RecentsViewCallbacks mCb;
+    View mClearRecents;
     boolean mAlreadyLaunchingTask;
 
     public RecentsView(Context context) {
@@ -134,6 +138,17 @@ public class RecentsView extends FrameLayout implements TaskStackView.TaskStackV
             View child = getChildAt(i);
             if (child != mSearchBar) {
                 removeViewAt(i);
+            }
+        }
+    }
+
+    public void dismissAllTasksAnimated() {
+        int childCount = getChildCount();
+        for (int i = 0; i < childCount; i++) {
+            View child = getChildAt(i);
+            if (child != mSearchBar) {
+                TaskStackView stackView = (TaskStackView) child;
+                stackView.dismissAllTasks();
             }
         }
     }
@@ -268,6 +283,14 @@ public class RecentsView extends FrameLayout implements TaskStackView.TaskStackV
         mConfig.getTaskStackBounds(width, height, mConfig.systemInsets.top,
                 mConfig.systemInsets.right, taskStackBounds);
 
+        if (mClearRecents != null) {
+            LinearLayout.LayoutParams params = (LinearLayout.LayoutParams)
+                    mClearRecents.getLayoutParams();
+
+            params.bottomMargin = mConfig.systemInsets.bottom;
+            mClearRecents.setLayoutParams(params);
+        }
+
         // Measure each TaskStackView with the full width and height of the window since the 
         // transition view is a child of that stack view
         int childCount = getChildCount();
@@ -282,6 +305,27 @@ public class RecentsView extends FrameLayout implements TaskStackView.TaskStackV
         }
 
         setMeasuredDimension(width, height);
+    }
+
+    public void noUserInteraction() {
+        if (mClearRecents != null) {
+            mClearRecents.setVisibility(View.VISIBLE);
+        }
+    }
+
+    @Override
+    protected void onAttachedToWindow () {
+        super.onAttachedToWindow();
+        mClearRecents = ((View)getParent()).findViewById(R.id.clear_recents);
+        mClearRecents.setOnTouchListener(new View.OnTouchListener() {
+            public void onTouch(View v, MotionEvent event) {
+                int action = event.getAction();
+                float xRaw = event.getRawX();
+                float yRaw = event.getRawY();
+                float distanceX = mInitDownPoint[0] - xRaw;
+                dismissAllTasksAnimated();
+            }
+        });
     }
 
     /**
